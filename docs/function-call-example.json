@@ -1,0 +1,351 @@
+{
+  "说明": "这是一个完整的 OpenAI Function Call 示例，展示从工具定义到最终回复的完整流程",
+  
+  "步骤1_工具定义": {
+    "description": "在 API 调用时提供的工具列表",
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "calculator__add",
+          "description": "[来自 calculator 服务器] 执行加法运算",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "number",
+                "description": "第一个数字"
+              },
+              "b": {
+                "type": "number",
+                "description": "第二个数字"
+              }
+            },
+            "required": ["a", "b"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "time__get_current_time",
+          "description": "[来自 time 服务器] 获取当前时间",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "timezone": {
+                "type": "string",
+                "description": "时区，例如 'Asia/Shanghai'"
+              }
+            },
+            "required": []
+          }
+        }
+      }
+    ]
+  },
+
+  "步骤2_API请求": {
+    "description": "第一次 API 调用，包含用户消息和工具定义",
+    "request": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是一个智能助手，可以通过调用各种工具来帮助用户完成任务。"
+        },
+        {
+          "role": "user",
+          "content": "帮我计算 15 + 27，然后告诉我现在的时间"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "calculator__add",
+            "description": "[来自 calculator 服务器] 执行加法运算",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "a": { "type": "number", "description": "第一个数字" },
+                "b": { "type": "number", "description": "第二个数字" }
+              },
+              "required": ["a", "b"]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "time__get_current_time",
+            "description": "[来自 time 服务器] 获取当前时间",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "timezone": { "type": "string", "description": "时区" }
+              },
+              "required": []
+            }
+          }
+        }
+      ],
+      "temperature": 0.7,
+      "max_tokens": 4096
+    }
+  },
+
+  "步骤3_LLM响应_包含工具调用": {
+    "description": "LLM 决定调用工具，返回 tool_calls",
+    "response": {
+      "id": "chatcmpl-abc123",
+      "object": "chat.completion",
+      "created": 1704067200,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_calc_001",
+                "type": "function",
+                "function": {
+                  "name": "calculator__add",
+                  "arguments": "{\"a\": 15, \"b\": 27}"
+                }
+              },
+              {
+                "id": "call_time_001",
+                "type": "function",
+                "function": {
+                  "name": "time__get_current_time",
+                  "arguments": "{\"timezone\": \"Asia/Shanghai\"}"
+                }
+              }
+            ]
+          },
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 50,
+        "total_tokens": 200
+      }
+    },
+    "说明": {
+      "content": "当 LLM 决定调用工具时，content 通常为 null",
+      "tool_calls": "包含一个或多个工具调用，每个都有唯一的 id",
+      "arguments": "参数是 JSON 字符串格式，需要解析",
+      "finish_reason": "为 'tool_calls' 表示 LLM 正在等待工具执行结果"
+    }
+  },
+
+  "步骤4_执行工具": {
+    "description": "Agent 执行工具调用并获取结果",
+    "tool_executions": [
+      {
+        "tool_call_id": "call_calc_001",
+        "function_name": "calculator__add",
+        "arguments": { "a": 15, "b": 27 },
+        "result": {
+          "result": 42,
+          "operation": "add",
+          "a": 15,
+          "b": 27
+        }
+      },
+      {
+        "tool_call_id": "call_time_001",
+        "function_name": "time__get_current_time",
+        "arguments": { "timezone": "Asia/Shanghai" },
+        "result": {
+          "current_time": "2026-01-28T14:30:00+08:00",
+          "timezone": "Asia/Shanghai",
+          "formatted": "2026年1月28日 14:30:00"
+        }
+      }
+    ]
+  },
+
+  "步骤5_添加工具结果到消息历史": {
+    "description": "将工具执行结果作为 tool 消息添加到对话历史",
+    "messages_after_tool_execution": [
+      {
+        "role": "system",
+        "content": "你是一个智能助手，可以通过调用各种工具来帮助用户完成任务。"
+      },
+      {
+        "role": "user",
+        "content": "帮我计算 15 + 27，然后告诉我现在的时间"
+      },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_calc_001",
+            "type": "function",
+            "function": {
+              "name": "calculator__add",
+              "arguments": "{\"a\": 15, \"b\": 27}"
+            }
+          },
+          {
+            "id": "call_time_001",
+            "type": "function",
+            "function": {
+              "name": "time__get_current_time",
+              "arguments": "{\"timezone\": \"Asia/Shanghai\"}"
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_calc_001",
+        "name": "calculator__add",
+        "content": "{\"result\": 42, \"operation\": \"add\", \"a\": 15, \"b\": 27}"
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_time_001",
+        "name": "time__get_current_time",
+        "content": "{\"current_time\": \"2026-01-28T14:30:00+08:00\", \"timezone\": \"Asia/Shanghai\", \"formatted\": \"2026年1月28日 14:30:00\"}"
+      }
+    ],
+    "关键点": {
+      "tool_call_id": "必须与 tool_calls 中的 id 匹配",
+      "name": "函数名称，用于标识",
+      "content": "JSON 字符串格式的结果"
+    }
+  },
+
+  "步骤6_第二次API调用": {
+    "description": "使用包含工具结果的完整消息历史再次调用 API",
+    "request": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是一个智能助手，可以通过调用各种工具来帮助用户完成任务。"
+        },
+        {
+          "role": "user",
+          "content": "帮我计算 15 + 27，然后告诉我现在的时间"
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_calc_001",
+              "type": "function",
+              "function": {
+                "name": "calculator__add",
+                "arguments": "{\"a\": 15, \"b\": 27}"
+              }
+            },
+            {
+              "id": "call_time_001",
+              "type": "function",
+              "function": {
+                "name": "time__get_current_time",
+                "arguments": "{\"timezone\": \"Asia/Shanghai\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_calc_001",
+          "name": "calculator__add",
+          "content": "{\"result\": 42, \"operation\": \"add\", \"a\": 15, \"b\": 27}"
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_time_001",
+          "name": "time__get_current_time",
+          "content": "{\"current_time\": \"2026-01-28T14:30:00+08:00\", \"timezone\": \"Asia/Shanghai\", \"formatted\": \"2026年1月28日 14:30:00\"}"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "calculator__add",
+            "description": "[来自 calculator 服务器] 执行加法运算",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "a": { "type": "number", "description": "第一个数字" },
+                "b": { "type": "number", "description": "第二个数字" }
+              },
+              "required": ["a", "b"]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "time__get_current_time",
+            "description": "[来自 time 服务器] 获取当前时间",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "timezone": { "type": "string", "description": "时区" }
+              },
+              "required": []
+            }
+          }
+        }
+      ],
+      "temperature": 0.7,
+      "max_tokens": 4096
+    },
+    "注意": "tools 参数仍然需要提供，因为 LLM 可能还需要调用其他工具"
+  },
+
+  "步骤7_LLM最终响应": {
+    "description": "LLM 基于工具结果生成最终回复",
+    "response": {
+      "id": "chatcmpl-abc124",
+      "object": "chat.completion",
+      "created": 1704067201,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "15 + 27 = 42\n\n现在的时间是：2026年1月28日 14:30:00（北京时间）",
+            "tool_calls": null
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 300,
+        "completion_tokens": 25,
+        "total_tokens": 325
+      }
+    },
+    "说明": {
+      "content": "现在有内容了，是 LLM 生成的最终回复",
+      "tool_calls": "为 null，表示不再需要调用工具",
+      "finish_reason": "为 'stop' 表示正常完成"
+    }
+  },
+
+  "关键要点": {
+    "1_工具定义": "使用 JSON Schema 格式，包含 name、description、parameters",
+    "2_工具调用": "LLM 返回 tool_calls 数组，arguments 是 JSON 字符串",
+    "3_工具结果": "使用 role: 'tool' 消息，必须包含 tool_call_id 匹配",
+    "4_多轮对话": "工具调用和结果都作为消息历史的一部分",
+    "5_LLM支持": "必须使用支持 Function Calling 的模型（如 GPT-4, DeepSeek 等）",
+    "6_迭代循环": "可能需要多轮工具调用才能完成复杂任务"
+  }
+}

@@ -1,0 +1,33 @@
+deepseek:
+  api_key: ${DEEPSEEK_API_KEY}
+  base_url: https://api.deepseek.com
+  model: deepseek-chat
+  temperature: 0.1
+
+mcp_servers:
+  time:
+    command: node
+    args: ["dist/buildinMcp/servers/time-server.js"]
+    transport: stdio
+    
+  calculator:
+    command: node
+    args: ["dist/buildinMcp/servers/calculator-server.js"]
+    transport: stdio
+    
+  filesystem:
+    command: node
+    args: ["dist/buildinMcp/servers/filesystem-server.js", "--root", "./data"]
+    transport: stdio
+
+  skill-script-runner:
+    command: node
+    args: ["dist/buildinMcp/servers/skill-runner-server.js", "--skills-dir", "./src/buildinSkills"]
+    transport: stdio
+
+skills:
+  directory: ./src/buildinSkills
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
